@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   Design tokens — "Drafting table" direction.
+   A local-first editor is a quiet workshop: warm paper to write on, ink-navy
+   structure, and a single signal-teal accent that lights up only when the
+   sync engine is live. Status colors (teal / amber / slate / red) form a small
+   semantic system so the connection pill reads at a glance. No remote fonts —
+   fitting for an app that must work fully offline.
+   =========================================================================== */
+@theme {
+  --color-ink: #11192b;
+  --color-ink-soft: #2a3447;
+  --color-paper: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-line: #e7e3da;
+  --color-line-strong: #d8d2c6;
+  --color-muted: #5b6472;
+  --color-faint: #8a8f99;
+
+  --color-signal: #0c8f8c; /* live / synced */
+  --color-signal-soft: #e0f2f1;
+  --color-warn: #c9791f; /* pending / offline-with-changes */
+  --color-warn-soft: #fbeed9;
+  --color-rest: #7a8492; /* idle / offline */
+  --color-danger: #c0392b;
+  --color-danger-soft: #fbe6e3;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code",
+    Menlo, Consolas, monospace;
+
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv05", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The editor writing surface — a sheet of paper with a faint baseline grid. */
+.writing-surface {
+  background-color: var(--color-surface);
+  background-image: linear-gradient(
+    to bottom,
+    transparent 1.74rem,
+    rgba(17, 25, 43, 0.04) 1.75rem
+  );
+  background-size: 100% 1.75rem;
+  line-height: 1.75rem;
+}
+
+/* Signature: the live pulse on the sync dot. */
+@keyframes lfe-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+.pulse-dot {
+  animation: lfe-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+textarea {
+  field-sizing: content;
+}

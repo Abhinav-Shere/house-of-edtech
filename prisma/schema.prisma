@@ -1,0 +1,106 @@
+// Local-First Collaborative Editor — data model
+// Database: PostgreSQL
+//
+// Tenant isolation is enforced two ways:
+//   1) Strict ORM scoping — every read/write is filtered through the
+//      Collaborator join table (see src/lib/rbac.ts). A user can never touch
+//      a document they are not a collaborator on.
+//   2) Optional Postgres Row Level Security — see prisma/rls.sql for policies
+//      you can layer on as defense-in-depth.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+
+  ownedDocuments Document[]     @relation("DocumentOwner")
+  collaborations Collaborator[]
+  versions       Version[]      @relation("VersionAuthor")
+
+  @@map("users")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled document")
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner         User           @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators Collaborator[]
+  state         DocumentState?
+  versions      Version[]
+
+  @@index([ownerId])
+  @@map("documents")
+}
+
+// The authoritative merged CRDT state for a document.
+// `update` is the full Yjs document encoded as a single merged update (Y.encodeStateAsUpdate).
+// `stateVector` lets the server compute a minimal diff for any client.
+model DocumentState {
+  documentId  String   @id
+  update      Bytes
+  stateVector Bytes
+  // Monotonic counter bumped on every successful merge — clients use it to
+  // cheaply detect "is there anything new on the server?" before pulling.
+  revision    Int      @default(0)
+  byteSize    Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_states")
+}
+
+model Collaborator {
+  id         String   @id @default(cuid())
+  documentId String
+  userId     String
+  role       Role     @default(VIEWER)
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@map("collaborators")
+}
+
+// A named, immutable snapshot of the full document state at a point in time.
+// Restoring a version never deletes history — it replays content as new CRDT
+// operations into the live document, so other collaborators converge safely.
+model Version {
+  id          String   @id @default(cuid())
+  documentId  String
+  label       String
+  snapshot    Bytes
+  byteSize    Int      @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  document  Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("VersionAuthor", fields: [createdById], references: [id])
+
+  @@index([documentId, createdAt])
+  @@map("versions")
+}
